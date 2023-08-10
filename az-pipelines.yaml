@@ -1,0 +1,34 @@
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  # install & prepare snyk and snyk-to-html
+
+- script: |
+    npm install snyk -g
+    npm install snyk-to-html -g
+  displayName: 'snyk and snyk-to-html install & auth'
+
+# snyk OS and code test -> output results to HTML report
+- script: |
+    snyk test --all-projects --severity-threshold=high --json > os-results.json
+  displayName: 'snyk test and convert to JSON'
+
+- script: 
+     snyk-to-html -i os-results.json -o OS-results.html
+  displayName: 'convert JSON to html report'
+  condition: succeededOrFailed()
+  
+#publish/upload artifacts to Azure - the PublishHtmlReport@1 uses a third party plugin (not from Snyk) to output the HTML report that Snyk generated to a tab on the Azure console 
+- task: PublishHtmlReport@1
+  condition: succeededOrFailed()
+  inputs:
+    reportDir: '$(System.DefaultWorkingDirectory)/OS-results.html'
+    
+- publish: $(System.DefaultWorkingDirectory)/OS-results.html
+  artifact: OS-Results.html
+  displayName: 'publish result as artifact' 
+  condition: succeededOrFailed()
